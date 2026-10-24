@@ -12,8 +12,9 @@ test("container paths translate into daemon-side persistent storage, native path
 });
 
 test("container bootstrap requires a writable, exact, local persistent data mount", () => {
-  const mount = { Destination: "/data", Source: "/srv/games", Type: "volume", Driver: "local", RW: true };
+  const mount = { Destination: "/data", Source: "/srv/games", Type: "volume", Driver: "local", Name: "panel-data", RW: true };
   assert.equal(mountedDataRoot({ Mounts: [mount] }), "/srv/games");
   assert.equal(mountedDataRoot({ Mounts: [{ ...mount, Type: "bind" }] }), "/srv/games");
   for (const Mounts of [[], [mount, mount], [{ ...mount, RW: false }], [{ ...mount, Driver: "remote" }], [{ ...mount, Destination: "/elsewhere" }], [{ ...mount, Source: "/" }]]) assert.throws(() => mountedDataRoot({ Mounts }));
+  assert.throws(() => mountedDataRoot({ Mounts: [{ ...mount, Name: "a".repeat(64) }] }), /explicitly named/);
 });
