@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>GamePanel</title>
+    <meta name="theme-color" content="#141a20" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/assets/brand/favicon-16.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/brand/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/assets/brand/favicon-48.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/brand/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <script>
+      (() => {
+        const saved = localStorage.getItem("gamepanel-theme");
+        const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        document.documentElement.dataset.theme = saved || (dark ? "dark" : "light");
+      })();
+    </script>
+    <link rel="stylesheet" href="/styles.css?v=20260604-resilient-restore" />
+  </head>
+  <body>
+    <section id="authView" class="auth-view" hidden>
+      <form id="authForm" class="auth-card">
+        <div class="brand-lockup auth-brand">
+          <img class="brand-mark" src="/assets/brand/icon-192.png" alt="" />
+          <div>
+            <h1>GamePanel</h1>
+            <p>Sign in to manage game servers.</p>
+          </div>
+        </div>
+        <label>
+          Username
+          <input id="usernameInput" autocomplete="username" />
+        </label>
+        <label>
+          Password
+          <input id="passwordInput" type="password" autocomplete="current-password" />
+        </label>
+        <button type="submit">Sign In</button>
+        <p id="authMessage" class="message"></p>
+      </form>
+    </section>
+
+    <section id="appView" hidden>
+      <header class="topbar">
+        <div class="brand-lockup topbar-brand">
+          <img class="brand-mark" src="/assets/brand/icon-192.png" alt="" />
+          <div>
+            <h1>GamePanel</h1>
+            <p id="statusLine">Checking Docker...</p>
+          </div>
+        </div>
+        <div class="top-actions">
+          <label class="theme-toggle" title="Toggle dark mode">
+            <input id="themeToggle" type="checkbox" />
+            <span class="theme-toggle-track" aria-hidden="true"></span>
+            <span id="themeLabel">Dark</span>
+          </label>
+          <button id="refreshButton" type="button">Refresh</button>
+          <button id="passwordButton" type="button">Change Password</button>
+          <button id="logoutButton" type="button">Log Out</button>
+        </div>
+      </header>
+
+      <nav id="realmTabs" class="realm-tabs" aria-label="Realms"></nav>
+      <main id="mainLayout" class="main-layout"></main>
+    </section>
+
+    <dialog id="passwordDialog" aria-labelledby="passwordTitle">
+      <form id="passwordForm" class="auth-card">
+        <h2 id="passwordTitle">Change your password</h2>
+        <label>Current password<input name="currentPassword" type="password" autocomplete="current-password" required /></label>
+        <label>New password<input name="newPassword" type="password" autocomplete="new-password" minlength="12" maxlength="256" required /></label>
+        <label>Confirm new password<input name="confirmPassword" type="password" autocomplete="new-password" minlength="12" maxlength="256" required /></label>
+        <p>Changing your password signs out your other sessions and disconnects their consoles.</p>
+        <p id="passwordMessage" role="status"></p>
+        <button type="submit">Change Password</button>
+        <button id="passwordCancel" type="button">Cancel</button>
+      </form>
+    </dialog>
+    <script src="/app.js?v=20261024-cookie-sessions"></script>
+  </body>
+</html>

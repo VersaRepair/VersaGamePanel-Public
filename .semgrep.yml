@@ -1,0 +1,34 @@
+rules:
+  - id: no-dynamic-javascript-execution
+    languages: [javascript]
+    severity: ERROR
+    message: Do not evaluate dynamic JavaScript in the panel.
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: new Function(...)
+  - id: no-shell-enabled-spawn
+    languages: [javascript]
+    severity: ERROR
+    message: Use argument arrays without a host shell; game-specific commands belong inside isolated runtimes.
+    pattern-either:
+      - pattern: 'spawn(..., { ..., shell: true, ... })'
+      - pattern: '$CP.spawn(..., { ..., shell: true, ... })'
+      - pattern: execSync(...)
+      - pattern: $CP.execSync(...)
+  - id: no-tls-verification-bypass
+    languages: [javascript]
+    severity: ERROR
+    message: Do not disable TLS certificate validation.
+    pattern-either:
+      - pattern: '{ ..., rejectUnauthorized: false, ... }'
+      - pattern: process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0"
+  - id: no-private-key-material
+    languages: [generic]
+    severity: ERROR
+    message: Private key material must never be committed.
+    pattern-regex: '-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----'
+  - id: no-personal-server-defaults
+    languages: [generic]
+    severity: ERROR
+    message: Personal server addresses, units and installation paths must not become product defaults again.
+    pattern-regex: '192\.168\.1\.132|gamepanel-unturned|/opt/unturned/U3DS'

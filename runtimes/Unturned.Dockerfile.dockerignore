@@ -1,0 +1,8 @@
+**
+!lib/
+lib/*
+!lib/game-profiles.js
+!runtimes/
+runtimes/*
+!runtimes/game-runner.js
+!runtimes/Unturned.Dockerfile

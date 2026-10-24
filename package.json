@@ -1,0 +1,27 @@
+{
+  "name": "gamepanel",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Small Docker-backed game server control panel",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node --check server.js && node --check public/app.js && node --check lib/filesystem-safety.js && node --check lib/safe-zip.js && node --check lib/file-upload.js && node --check lib/console-transport.js && node --check lib/console-tickets.js",
+    "test": "node --test",
+    "test:browser": "playwright test"
+  },
+  "dependencies": {
+    "busboy": "^1.6.0",
+    "docker-modem": "^5.0.7",
+    "semver": "7.8.5",
+    "smol-toml": "1.9.1",
+    "ws": "^8.22.0",
+    "yauzl": "^3.4.0"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1"
+  }
+}

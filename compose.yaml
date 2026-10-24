@@ -1,0 +1,28 @@
+name: versagamepanel
+services:
+  panel:
+    image: ${VGP_IMAGE:-ghcr.io/versarepair/versagamepanel:alpha}
+    container_name: versagamepanel
+    restart: unless-stopped
+    ports:
+      - "${VGP_BIND_ADDRESS:-127.0.0.1}:${VGP_PORT:-8788}:8788"
+    volumes:
+      - panel-data:/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,noexec,size=256m
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETUID, SETGID, SETPCAP]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 256
+    mem_limit: 1g
+    cpus: 2
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+volumes:
+  panel-data:
+    name: ${VGP_DATA_VOLUME:-versagamepanel_data}
