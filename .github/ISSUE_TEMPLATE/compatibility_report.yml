@@ -1,0 +1,65 @@
+name: Game or platform compatibility result
+description: Share a successful, failed or partially completed test.
+title: "[Compatibility]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Successful limited tests are welcome! A template being selectable does not mean it is verified. Report only what you actually tested.
+        This issue is public: no credentials, personal worlds, full volumes, private download URLs or unredacted logs. Use the separate bug form for a reproducible defect, or private security reporting for vulnerabilities.
+  - type: input
+    id: image
+    attributes:
+      label: Panel image tag and digest (or source commit)
+    validations:
+      required: true
+  - type: textarea
+    id: setup
+    attributes:
+      label: Host, game and client versions
+      description: OS, architecture, Docker/Compose, install method, exact game/profile/loader/mod versions and game client if used. Redact private details.
+    validations:
+      required: true
+  - type: dropdown
+    id: outcome
+    attributes:
+      label: Overall result
+      options:
+        - Passed the steps listed below
+        - Partially passed
+        - Failed
+    validations:
+      required: true
+  - type: textarea
+    id: coverage
+    attributes:
+      label: What did you actually test?
+      description: "Mark each item PASS, FAIL or NOT TESTED. Terminal echo alone does not prove console commands work."
+      value: |
+        Installation and login:
+        Fresh install starts with zero servers:
+        Game installation and readiness:
+        Console with actual game-generated response:
+        Console disconnect/reconnect:
+        Matching game client joined successfully:
+        Settings and files:
+        Graceful stop/restart and world persistence:
+        Backup/snapshot creation and restore:
+        Mods or Workshop content:
+        Panel replacement and retained data/accounts:
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Reproduction steps, limitations and redacted observations
+      description: Include public mod names/IDs if useful. Distinguish unsupported configuration from a verified defect; link a bug report if you opened one.
+    validations:
+      required: true
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Public-report safety
+      options:
+        - label: I reviewed this report and its attachments for secrets and personal data; I have not attached game data or private credentials.
+          required: true

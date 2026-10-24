@@ -12,6 +12,16 @@ curl -fL https://raw.githubusercontent.com/VersaRepair/VersaGamePanel-Public/mai
 
 Open http://127.0.0.1:8788 and read the [installation guide](docs/CONTAINERS.md) for the private first-login password, docker run alternative, game runtime preparation, networking, backups and updates. Do not paste passwords into issues. Installation creates zero game servers and accepts no game EULAs.
 
+## Help test the alpha
+
+Start with the [tester checklist](docs/TESTING.md) and [compatibility matrix](docs/COMPATIBILITY.md). Please use disposable worlds, not your only copy of a real server.
+
+- [Report a reproducible bug](https://github.com/VersaRepair/VersaGamePanel-Public/issues/new?template=bug_report.yml).
+- [Share a game/loader compatibility result](https://github.com/VersaRepair/VersaGamePanel-Public/issues/new?template=compatibility_report.yml), including successful tests.
+- [Report a security vulnerability privately](SECURITY.md), never through a public bug report.
+
+Your feedback helps determine what is actually reliable. A selectable template is not a promise that its game, launcher or mod combination has been verified.
+
 ## What testers can exercise
 
 - Create/start/stop/restart Docker-backed servers; live interactive console and logs.

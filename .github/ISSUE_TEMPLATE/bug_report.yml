@@ -1,0 +1,57 @@
+name: Bug report
+description: Report one reproducible problem in the tester alpha.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for testing! Use disposable data. For security vulnerabilities, use [private reporting](https://github.com/VersaRepair/VersaGamePanel-Public/security/advisories/new), not this public form.
+        Never paste passwords, tokens, cookies, private URLs, complete Docker inspect output, full volumes or unredacted logs.
+  - type: input
+    id: image
+    attributes:
+      label: Panel image tag and digest (or source commit)
+      placeholder: "ghcr.io/versarepair/versagamepanel:alpha; sha256:…"
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS/version, CPU architecture, Docker/Compose versions, Compose or docker run, browser/version. No IP addresses or full environment dump needed.
+    validations:
+      required: true
+  - type: input
+    id: game
+    attributes:
+      label: Game, profile, loader and mod versions
+      description: "Use 'not game-specific' for installation or login problems. Redact private mod URLs/API keys."
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Include whether this is a fresh install and how consistently it happens. Use one issue per problem.
+      placeholder: "1. …\n2. …\n3. …"
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: Expected versus actual result
+      description: Say which step failed, whether the game is running/stopped and whether any disposable data appears affected. Do not delete data to investigate.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Optional redacted error or screenshot
+      description: A short, manually reviewed excerpt only. Do not attach worlds, mods, backup archives, credential files or entire diagnostic bundles.
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Public-report safety
+      options:
+        - label: I reviewed this report and its attachments for secrets and personal data; this is not a private security report.
+          required: true
