@@ -20,10 +20,12 @@ test("packaged panel: non-root bootstrap, sibling console/files, backups and rep
     await docker(["image", "rm", `${name}-sibling`]).catch(() => {});
   });
   await docker(["volume", "create", volume]);
+  await assert.rejects(docker(["run", "--rm", image]), /Container setup failed/, "missing Docker socket fails closed");
+  await assert.rejects(docker(["run", "--rm", "-v", "/var/run/docker.sock:/var/run/docker.sock", image]), /explicitly named Docker volume/, "anonymous data storage is rejected");
   async function start() {
     await docker(["run", "-d", "--name", name, "--read-only", "--tmpfs", "/tmp:rw,nosuid,nodev,noexec,size=256m",
       "--cap-drop=ALL", "--cap-add=CHOWN", "--cap-add=SETUID", "--cap-add=SETGID", "--cap-add=SETPCAP", "--security-opt=no-new-privileges",
-      "--pids-limit=256", "--memory=1g", "-p", "127.0.0.1::8788", "-v", `${volume}:/data`, "-v", "/var/run/docker.sock:/var/run/docker.sock", image]);
+      "--pids-limit=256", "--memory=1g", "-e", "GAMEPANEL_AUTH_DISABLED=1", "-e", "GAMEPANEL_ALLOW_LEGACY_TOKEN=1", "-p", "127.0.0.1::8788", "-v", `${volume}:/data`, "-v", "/var/run/docker.sock:/var/run/docker.sock", image]);
     const [info] = JSON.parse(await docker(["inspect", name]));
     const url = `http://127.0.0.1:${info.NetworkSettings.Ports["8788/tcp"][0].HostPort}`;
     for (let n = 0; n < 150; n += 1) {
