@@ -59,8 +59,8 @@ jobs:
         run: |
           gzip -dc panel-image.tar.gz | docker load
           printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          # Publish a commit-specific candidate. Release channels are promoted
+          # only by the separately approved workflow_dispatch action.
           docker tag versagamepanel/panel:container-test ghcr.io/versarepair/versagamepanel:sha-$GITHUB_SHA
-          docker tag versagamepanel/panel:container-test ghcr.io/versarepair/versagamepanel:alpha
           docker push ghcr.io/versarepair/versagamepanel:sha-$GITHUB_SHA
-          docker push ghcr.io/versarepair/versagamepanel:alpha
           docker logout ghcr.io

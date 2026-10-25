@@ -25,7 +25,7 @@ ssh -L 8788:127.0.0.1:8788 your-user@your-docker-host
 
 For deliberate trusted LAN access only: `VGP_BIND_ADDRESS=YOUR_HOST_LAN_IP docker compose up -d`. Sign-in over plain HTTP is not encrypted; use a trusted private connection or a correctly configured HTTPS proxy for non-local access. Do not forward the admin port to the internet. Existing public-URL/cookie settings require correct HTTPS proxy configuration and are not automatically set up here.
 
-The public `alpha` tag moves after CI passes; immutable `sha-COMMIT` tags are also published. Set `VGP_IMAGE=ghcr.io/versarepair/versagamepanel:sha-COMMIT` or an image digest to pin a build. `VGP_PORT` changes the host port; `VGP_DATA_VOLUME` changes the named data volume. Do not run multiple panels against the same volume or daemon: game container names and the Docker maintenance view are not namespaced between installations yet.
+The public `alpha` tag remains on its last explicitly approved version. The reviewed public release workflow will publish CI-tested `sha-COMMIT` candidate tags; an authorized maintainer must explicitly promote a candidate before `dev`, `alpha`, `beta` or `stable` moves. See [release channels](RELEASE_CHANNELS.md). Set `VGP_IMAGE=ghcr.io/versarepair/versagamepanel:sha-COMMIT` or an image digest to pin a build. `VGP_PORT` changes the host port; `VGP_DATA_VOLUME` changes the named data volume. Do not run multiple panels against the same volume or daemon: game container names and the Docker maintenance view are not namespaced between installations yet.
 
 ## Install with docker run
 
