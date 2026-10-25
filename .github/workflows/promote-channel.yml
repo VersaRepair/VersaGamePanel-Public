@@ -1,0 +1,128 @@
+name: Promote approved release channel
+
+# Runs only after a maintainer explicitly approves a tested public-source build.
+# Private repository PR images are NOT eligible for public promotion.
+on:
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: Public release channel to promote
+        required: true
+        type: choice
+        options:
+          - dev
+          - alpha
+          - beta
+          - stable
+      source_sha:
+        description: Full 40-character SHA of an already built and tested PUBLIC main commit
+        required: true
+        type: string
+      confirmation:
+        description: Type PUBLISH-DEV, PUBLISH-ALPHA, PUBLISH-BETA or PUBLISH-STABLE
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: public-versa-gamepanel-release-${{ inputs.channel }}
+  cancel-in-progress: false
+
+jobs:
+  verify-candidate:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify deliberate approval and public source ancestry
+        env:
+          CHANNEL: ${{ inputs.channel }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$CHANNEL" in dev|alpha|beta|stable) ;; *) exit 1 ;; esac
+          [[ "$SOURCE_SHA" =~ ^[a-f0-9]{40}$ ]] || { echo "A full lowercase public commit SHA is required"; exit 1; }
+          [[ "$CONFIRMATION" == "PUBLISH-${CHANNEL^^}" ]] || { echo "Explicit confirmation is missing"; exit 1; }
+          git cat-file -e "${SOURCE_SHA}^{commit}"
+          git merge-base --is-ancestor "$SOURCE_SHA" refs/remotes/origin/main || {
+            echo "Cannot publish a private branch or an unreviewed source commit"; exit 1;
+          }
+      - name: Verify a previously published CI-tested public candidate
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          image="ghcr.io/versarepair/versagamepanel:sha-$SOURCE_SHA"
+          docker pull "$image"
+          revision="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$image")"
+          [[ "$revision" == "$SOURCE_SHA" ]] || {
+            echo "Image revision label does not match the approved public commit"; exit 1;
+          }
+          echo "Verified existing public candidate for commit $SOURCE_SHA"
+
+  promote:
+    needs: verify-candidate
+    runs-on: ubuntu-24.04
+    # Configure REQUIRED REVIEWERS for these environments in GitHub Settings.
+    # Without protection, the explicit workflow dispatch remains the approval gate.
+    environment:
+      name: release-${{ inputs.channel }}
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Promote exact tested image and publish immutable-name release entry
+        env:
+          CHANNEL: ${{ inputs.channel }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          image="ghcr.io/versarepair/versagamepanel"
+          candidate="$image:sha-$SOURCE_SHA"
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker pull "$candidate"
+          revision="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$candidate")"
+          [[ "$revision" == "$SOURCE_SHA" ]] || exit 1
+          docker tag "$candidate" "$image:$CHANNEL"
+          docker push "$image:$CHANNEL"
+          docker logout ghcr.io
+
+          release_tag="${CHANNEL}-${SOURCE_SHA:0:12}"
+          if ! gh release view "$release_tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            cat >release-notes.md <<EOF
+          Release channel: **$CHANNEL**
+
+          Source: approved public commit \`$SOURCE_SHA\`.
+          Container image: \`$image:$CHANNEL\`.
+          Reproducible source image: \`$candidate\`.
+
+          This build was promoted from an existing CI-tested public candidate without rebuilding it.
+          Do not treat a published container image as a security certification. Follow the documentation and keep independent data backups.
+          EOF
+            args=(--repo "$GITHUB_REPOSITORY" --target "$SOURCE_SHA" --title "VersaGamePanel $CHANNEL — ${SOURCE_SHA:0:12}" --notes-file release-notes.md --latest=false)
+            if [[ "$CHANNEL" != "stable" ]]; then args+=(--prerelease); fi
+            gh release create "$release_tag" "${args[@]}"
+          else
+            echo "Release entry already exists: $release_tag"
+          fi
+          {
+            echo "## Approved public promotion"
+            echo "- Channel: \`$CHANNEL\`"
+            echo "- Source SHA: \`$SOURCE_SHA\`"
+            echo "- Image: \`$image:$CHANNEL\`"
+            echo "- GitHub Release: \`$release_tag\`"
+          } >> "$GITHUB_STEP_SUMMARY"
