@@ -32,6 +32,7 @@ concurrency:
 
 jobs:
   verify-candidate:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -70,6 +71,7 @@ jobs:
           echo "Verified existing public candidate for commit $SOURCE_SHA"
 
   promote:
+    if: github.ref == 'refs/heads/main'
     needs: verify-candidate
     runs-on: ubuntu-24.04
     # Configure REQUIRED REVIEWERS for these environments in GitHub Settings.
