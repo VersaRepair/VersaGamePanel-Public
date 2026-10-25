@@ -103,18 +103,10 @@ jobs:
 
           release_tag="${CHANNEL}-${SOURCE_SHA:0:12}"
           if ! gh release view "$release_tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            cat >release-notes.md <<EOF
-          Release channel: **$CHANNEL**
-
-          Source: approved public commit \`$SOURCE_SHA\`.
-          Container image: \`$image:$CHANNEL\`.
-          Reproducible source image: \`$candidate\`.
-
-          This build was promoted from an existing CI-tested public candidate without rebuilding it.
-          Do not treat a published container image as a security certification. Follow the documentation and keep independent data backups.
-          EOF
-            args=(--repo "$GITHUB_REPOSITORY" --target "$SOURCE_SHA" --title "VersaGamePanel $CHANNEL — ${SOURCE_SHA:0:12}" --notes-file release-notes.md --latest=false)
-            if [[ "$CHANNEL" != "stable" ]]; then args+=(--prerelease); fi
+            printf 'Channel: %s\n\nSource: approved public commit %s\n\nContainer image: %s\nReproducible source tag: %s\n\nPromoted from the existing CI-tested public candidate without rebuilding.\nThis is not a security certification; keep independent backups and follow the installation guidance.\n' \
+              "$CHANNEL" "$SOURCE_SHA" "$image:$CHANNEL" "$candidate" >release-notes.md
+            args=(--repo "$GITHUB_REPOSITORY" --target "$SOURCE_SHA" --title "VersaGamePanel $CHANNEL — ${SOURCE_SHA:0:12}" --notes-file release-notes.md)
+            if [[ "$CHANNEL" != "stable" ]]; then args+=(--prerelease --latest=false); else args+=(--latest); fi
             gh release create "$release_tag" "${args[@]}"
           else
             echo "Release entry already exists: $release_tag"
