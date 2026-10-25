@@ -84,7 +84,7 @@ The most useful next milestone is a **fresh installation by someone following th
 - [Submit a compatibility result](https://github.com/VersaRepair/VersaGamePanel-Public/issues/new?template=compatibility_report.yml), including a successful one.
 - [Report security vulnerabilities privately](SECURITY.md), not in public issues.
 
-GitHub Actions runs regression tests, browser tests, dependency/static/secret checks, packaged-container tests and image vulnerability checks before updating the moving `alpha` container image. Fixed commit tags are published for reproducible testing. **Passing CI or a scanner is not a security certification.**
+GitHub Actions runs regression tests, browser tests, dependency/static/secret checks, packaged-container tests and image vulnerability checks before publishing a commit-specific candidate image. Moving release tags, including `alpha`, change **only after an explicit approved promotion**. Commit-specific image tags remain available for reproducible testing. **Passing CI or a scanner is not a security certification.**
 
 ## Source, releases and project history
 
