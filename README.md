@@ -88,7 +88,7 @@ GitHub Actions runs regression tests, browser tests, dependency/static/secret ch
 
 ## Source, releases and project history
 
-The container image is distributed as `ghcr.io/versarepair/versagamepanel:alpha`. The source in this repository is a **clean public tester export**; the original recovered history and archived server/plugin bundles are retained separately and are not part of the distributed image.
+The currently tested public image is `ghcr.io/versarepair/versagamepanel:alpha`. See the [release channels and promotion policy](docs/RELEASE_CHANNELS.md) for the proposed Dev, Alpha, Beta and Stable tracks and the explicit approval process. The source in this repository is a **clean public tester export**; the original recovered history and archived server/plugin bundles are retained separately and are not part of the distributed image.
 
 VersaGamePanel continues the original GamePanel project. Its identity, preservation approach and motivation are described in [project history](docs/HISTORY.md). Original GamePanel visual assets remain part of the application.
 
