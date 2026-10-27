@@ -91,9 +91,8 @@ test("fresh Unturned and Terraria editors expose files and private save snapshot
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await login(page, panel);
-  for (const [realm, templateId] of [["steam", "unturned-dedicated"], ["other", "terraria-vanilla"], ["other", "terraria-tmodloader-reviewed"]]) {
+  for (const [realm, templateId] of [["steam", "unturned-dedicated"], ["other", "terraria-vanilla"]]) {
     await page.locator(`[data-realm="${realm}"]`).click();
-    if (templateId === "terraria-tmodloader-reviewed") await page.getByRole("button", { name: "New", exact: true }).click();
     await page.locator(`[data-template="${templateId}"]`).click();
     await expect(page.locator("#genericForm")).toBeVisible();
     await page.locator('[data-env="SERVERNAME"]').fill("Browser verified fresh server");

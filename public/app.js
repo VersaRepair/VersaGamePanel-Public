@@ -2,6 +2,9 @@
 
 const state = {
   me: null,
+  backend: "docker",
+  agentError: "",
+  agentProvisioning: false,
   realm: localStorage.getItem("gamepanel-realm") || "minecraft",
   page: localStorage.getItem("gamepanel-page") || "server",
   createEdition: localStorage.getItem("gamepanel-create-edition") || "java",
@@ -49,6 +52,7 @@ function isAdmin() {
 }
 
 function visibleRealms() {
+  if (state.backend === "agent") return [{ id: "agent", label: "Agent Servers" }, ...(isAdmin() ? [{ id: "users", label: "Users" }] : [])];
   return realms.filter((realm) => !realm.adminOnly || isAdmin());
 }
 
@@ -231,6 +235,7 @@ function realmForTemplate(template) {
 }
 
 function realmForServer(server) {
+  if (state.backend === "agent") return "agent";
   return realmForTemplate(templateById(server.templateId));
 }
 
@@ -275,9 +280,15 @@ async function refresh({ keepPage = true } = {}) {
   state.me = mePayload.user;
   state.templates = templatesPayload.templates;
   state.servers = serversPayload.servers;
-  state.docker = isAdmin() ? await api("/api/docker") : { images: [], containers: [], dataDir: statusPayload.dataDir, docker: statusPayload.docker };
+  state.backend = statusPayload.backend || "docker";
+  state.agentError = serversPayload.error || statusPayload.error || "";
+  state.agentProvisioning = statusPayload.provisioning === true;
+  state.agentProfiles = statusPayload.profiles || [];
+  state.agentGameProfiles = statusPayload.gameProfiles || {};
+  state.release = statusPayload.release || "private development";
+  state.docker = isAdmin() && state.backend !== "agent" ? await api("/api/docker") : { images: [], containers: [], dataDir: statusPayload.dataDir, docker: statusPayload.docker };
   state.users = isAdmin() ? (await api("/api/users")).users : [];
-  if (!visibleRealms().some((realm) => realm.id === state.realm)) state.realm = "minecraft";
+  if (!visibleRealms().some((realm) => realm.id === state.realm)) state.realm = state.backend === "agent" ? "agent" : "minecraft";
   for (const realm of visibleRealms()) {
     if (["docker", "users"].includes(realm.id)) continue;
     if (!state.selectedByRealm[realm.id] || !state.servers.some((server) => server.id === state.selectedByRealm[realm.id])) {
@@ -286,7 +297,7 @@ async function refresh({ keepPage = true } = {}) {
     }
   }
   if (!keepPage) state.page = "server";
-  els.statusLine.textContent = statusPayload.ok ? `Docker ${statusPayload.docker}; ${state.servers.length} configured` : "Docker unavailable";
+  els.statusLine.textContent = state.backend === "agent" ? state.agentError || `Authenticated agent; ${state.servers.length} authorized servers` : statusPayload.ok ? `Docker ${statusPayload.docker}; ${state.servers.length} configured` : "Docker unavailable";
   saveUiState();
   render();
 }
@@ -303,11 +314,23 @@ function render() {
   renderRealmTabs();
   const server = selectedServer();
   if (server && state.creatingRealm !== state.realm) state.selectedByRealm[state.realm] = server.id;
-  if (state.realm === "docker" && isAdmin()) renderDockerMaintenance();
+  if (state.backend === "agent" && state.realm !== "users") renderAgentDashboard();
+  else if (state.realm === "docker" && isAdmin()) renderDockerMaintenance();
   else if (state.realm === "users" && isAdmin()) renderUsersAdmin();
   else if (state.realm === "minecraft") renderMinecraftRealm(server);
   else renderGenericRealm(server);
   saveUiState();
+}
+
+function renderAgentDashboard() {
+  els.mainLayout.className = "main-layout generic-layout";
+  els.mainLayout.innerHTML = `<section class="panel generic-editor"><h1>Agent servers</h1>
+    <p><strong>Developer prerelease ${escapeHtml(state.release)}</strong> — private authenticated agent; no panel Docker access. Only installed pinned game profiles are offered. tModLoader is withheld pending a vulnerability-free supported upstream bundle. Advanced settings, mods/file management and in-app backups remain legacy-only.</p>
+    ${state.agentError ? `<p role="alert">${escapeHtml(state.agentError)}</p>` : ""}
+    ${isAdmin() && state.agentProvisioning ? `<form id="agentCreateForm" class="create-card"><h2>Create Server</h2><p>Fixed limits. Creating does not start it. Fixed presets: Minecraft 3 GiB, Terraria 2 GiB, Unturned 6 GiB; 8 players. Unturned first start installs Valve app 1110390 anonymously into its own storage.</p><label>Server name<input name="name" required maxlength="60" pattern="[A-Za-z0-9][A-Za-z0-9 _-]*" autocomplete="off" /></label><label>Server profile<select name="profile" aria-label="Server profile">${(state.agentProfiles.length ? state.agentProfiles : ["alpine-smoke-v1", "alpine-console-v1"]).map((p) => `<option value="${escapeHtml(p)}">${escapeHtml(state.agentGameProfiles[p]?.title || (p === "alpine-console-v1" ? "Alpine console fixture (test only)" : "Alpine smoke (test only)"))}</option>`).join("")}</select></label><label>Game port<input name="port" type="number" value="25565" min="25565" max="25572" /></label><label><input type="checkbox" name="eula" />For the selected game, I accept its publisher terms (including the <a href="https://www.minecraft.net/en-us/eula" target="_blank" rel="noopener noreferrer">Minecraft EULA</a> where applicable).</label><button type="submit">Create Server</button></form>` : ""}
+    ${state.servers.map((server) => `<article class="create-card"><h2>${escapeHtml(server.name)}</h2><p><span>${escapeHtml(server.runtime.status)}</span> · ${escapeHtml(server.profile || "managed server")}${server.connection ? ` · Direct: ${escapeHtml(server.connection.address)}:${server.connection.port}` : ""}</p>
+      <div class="button-row">${["start", "stop", "restart"].map((action) => `<button type="button" data-action="agent-lifecycle" data-id="${server.id}" data-operation="${action}">${action[0].toUpperCase() + action.slice(1)}</button>`).join("")}<button type="button" data-action="agent-stream" data-id="${server.id}" data-mode="logs">Logs</button><button type="button" data-action="agent-stream" data-id="${server.id}" data-mode="console" ${server.console && server.runtime.running ? "" : "disabled"}>Console</button>${isAdmin() && (server.disposable || server.managed) ? `<button type="button" data-action="agent-delete" data-id="${server.id}" ${server.runtime.running ? "disabled" : ""}>Delete Server and Data</button>` : ""}</div></article>`).join("") || "<p>No authorized agent servers available.</p>"}
+      <section aria-label="Agent logs and console"><h2>Logs and console</h2><p>Log sessions are bounded; reconnect for recent output. Minecraft: list, seed, save-all flush, say message. Terraria: save, playing, version. Unturned: Save, Players. Test fixture: ping, status, help. Other commands are blocked.</p><pre id="terminal" role="log" aria-live="polite" tabindex="0" style="max-height:24rem;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere">Choose Logs or Console on a server.</pre><form id="agentCommandForm"><label>Console command<input name="command" maxlength="124" autocomplete="off" /></label><button type="submit" disabled>Send command</button></form><button type="button" data-action="agent-disconnect">Disconnect stream</button></section></section>`;
 }
 
 function serverStatus(server) {
@@ -1081,6 +1104,8 @@ function closeSocket() {
   state.streamRequest += 1;
   if (state.socket) state.socket.close();
   state.socket = null;
+  const send = document.querySelector('#agentCommandForm button[type="submit"]');
+  if (send) send.disabled = true;
 }
 
 function appendTerminal(text) {
@@ -1107,8 +1132,9 @@ async function openStream(mode) {
     const scheme = location.protocol === "https:" ? "wss" : "ws";
     const socket = new WebSocket(`${scheme}://${location.host}/ws/servers/${server.id}/${mode}?ticket=${encodeURIComponent(ticket)}`);
     state.socket = socket;
+    socket.addEventListener("open", () => { if (state.socket === socket) { const send = document.querySelector('#agentCommandForm button[type="submit"]'); if (send) send.disabled = mode !== "console"; } });
     socket.addEventListener("message", (event) => { if (state.socket === socket) appendTerminal(event.data); });
-    socket.addEventListener("close", () => { if (state.socket === socket) appendTerminal("\n[websocket closed]\n"); });
+    socket.addEventListener("close", (event) => { if (state.socket === socket) { const send = document.querySelector('#agentCommandForm button[type="submit"]'); if (send) send.disabled = true; appendTerminal(`\n[${event.reason || "Connection closed. Reconnect to continue."}]\n`); } });
     socket.addEventListener("error", () => { if (state.socket === socket) appendTerminal("\n[websocket error]\n"); });
   } catch (error) {
     if (request === state.streamRequest && terminal === $("terminal")) appendTerminal(`\n[${error.message || "Console unavailable"}]\n`);
@@ -1275,7 +1301,20 @@ function wireEvents() {
     const server = selectedServer();
     const action = target.dataset.action;
     try {
-      if (action && action.startsWith("docker-")) {
+      if (action === "agent-stream") {
+        state.selectedByRealm.agent = target.dataset.id;
+        await openStream(target.dataset.mode);
+      } else if (action === "agent-disconnect") { closeSocket(); appendTerminal("\n[Disconnected]\n");
+      } else if (action === "agent-delete") {
+        if (!confirm("Delete this stopped owned server and all of its game data? This cannot be undone. Keep a host backup first.")) return;
+        target.disabled = true;
+        try { await api(`/api/servers/${target.dataset.id}`, { method: "DELETE", body: JSON.stringify({ confirm: target.dataset.id }) }); }
+        finally { await refresh(); }
+      } else if (action === "agent-lifecycle") {
+        target.disabled = true;
+        try { await api(`/api/servers/${target.dataset.id}/actions`, { method: "POST", body: JSON.stringify({ action: target.dataset.operation }) }); }
+        finally { await refresh(); }
+      } else if (action && action.startsWith("docker-")) {
         await runDockerUiAction(action, target);
       } else if (action === "open-users") {
         state.realm = "users";
@@ -1386,6 +1425,15 @@ function wireEvents() {
     event.preventDefault();
     const server = selectedServer();
     try {
+      if (event.target.id === "agentCreateForm") {
+        const button = event.target.querySelector('button[type="submit"]'); button.disabled = true;
+        try { const form = new FormData(event.target), profile = form.get("profile"); await api("/api/servers", { method: "POST", body: JSON.stringify({ profile, name: form.get("name"), ...(state.agentGameProfiles[profile] ? { port: Number(form.get("port")), eula: form.get("eula") === "on" } : {}) }) }); }
+        finally { await refresh(); }
+        return;
+      }
+      if (event.target.id === "agentCommandForm") {
+        sendConsoleCommand(new FormData(event.target).get("command")); event.target.reset(); return;
+      }
       if (event.target.id === "userAddForm") {
         await addUser(event.target);
       } else if (event.target.dataset.userForm) {
@@ -1441,6 +1489,11 @@ function wireEvents() {
   });
 
   els.mainLayout.addEventListener("change", async (event) => {
+    if (event.target.name === "profile" && event.target.closest("#agentCreateForm")) {
+      const preset = state.agentGameProfiles[event.target.value], port = event.target.form.elements.port;
+      if (preset) { port.min = preset.portMin; port.max = preset.portMax; port.step = preset.step; port.value = preset.portMin; event.target.form.elements.eula.checked = false; }
+      return;
+    }
     const server = selectedServer();
     if (!server) return;
     try {

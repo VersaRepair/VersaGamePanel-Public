@@ -1,14 +1,16 @@
 {
   "name": "gamepanel",
-  "version": "0.1.0",
+  "version": "0.2.0-dev.2",
   "private": true,
   "description": "Small Docker-backed game server control panel",
   "type": "commonjs",
   "scripts": {
     "start": "node server.js",
-    "check": "node --check server.js && node --check public/app.js && node --check lib/filesystem-safety.js && node --check lib/safe-zip.js && node --check lib/file-upload.js && node --check lib/console-transport.js && node --check lib/console-tickets.js",
-    "test": "node --test",
-    "test:browser": "playwright test"
+    "check": "node --check server.js && node --check public/app.js && node --check lib/filesystem-safety.js && node --check lib/safe-zip.js && node --check lib/file-upload.js && node --check lib/console-transport.js && node --check lib/console-tickets.js && node --check agent/daemon.js && node --check agent/docker-adapter.js && node --check lib/agent-security.js && node --check lib/agent-client.js",
+    "test": "node test-support/run-tests.js",
+    "test:browser": "playwright test",
+    "agent": "node agent/daemon.js",
+    "test:agent": "node --test test/agent.test.js test/agent-mtls.test.js test/agent-panel.test.js test/agent-provisioning.test.js test/agent-io.test.js"
   },
   "dependencies": {
     "busboy": "^1.6.0",

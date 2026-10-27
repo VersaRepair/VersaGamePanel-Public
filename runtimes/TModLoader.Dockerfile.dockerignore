@@ -1,8 +1,0 @@
-**
-!lib/
-lib/*
-!lib/game-profiles.js
-!runtimes/
-runtimes/*
-!runtimes/game-runner.js
-!runtimes/TModLoader.Dockerfile

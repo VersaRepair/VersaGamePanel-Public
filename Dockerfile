@@ -1,21 +1,27 @@
-FROM node:24-trixie-slim@sha256:43b9ba1142b8dcf33fa8f922ca1be85714adc444e0586c7cf7726daaeabc1bea
+FROM node:24-alpine@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53
 ARG VCS_REF=development
-LABEL org.opencontainers.image.title="VersaGamePanel tester alpha" \
-      org.opencontainers.image.source="https://github.com/VersaRepair/VersaGamePanel-Public" \
+LABEL org.opencontainers.image.title="VersaGamePanel private developer candidate" \
+      org.opencontainers.image.version="0.2.0-dev.2" \
+      org.opencontainers.image.source="https://github.com/VersaRepair/VersaGamePanel" \
       org.opencontainers.image.revision=$VCS_REF
-RUN apt-get update && apt-get install -y --no-install-recommends docker-cli ca-certificates zip unzip tar util-linux && rm -rf /var/lib/apt/lists/*
+RUN apk upgrade --no-cache && apk add --no-cache docker-cli ca-certificates zip unzip tar util-linux
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts --no-fund && npm cache clean --force && rm -rf /usr/local/lib/node_modules/npm && rm -f /usr/local/bin/npm /usr/local/bin/npx
 COPY server.js ./
 COPY lib/ ./lib/
+# Development previews include the dormant, local-only agent prototype.
+# The production panel entrypoint is unchanged; this does not enable remote agents.
+COPY agent/ ./agent/
 COPY public/ ./public/
 COPY runtimes/ ./runtimes/
 COPY deploy/container/ ./deploy/container/
-RUN chmod 755 deploy/container/entrypoint.sh && mkdir /data && chown node:node /data
+RUN sed -i 's/\r$//' deploy/container/entrypoint.sh && chmod 755 deploy/container/entrypoint.sh && chmod -R a+rX public && mkdir /data && chown node:node /data
 ENV NODE_ENV=production GAMEPANEL_DATA_DIR=/data HOST=0.0.0.0 PORT=8788
 VOLUME ["/data"]
 EXPOSE 8788
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 CMD ["node", "/app/deploy/container/healthcheck.js"]
-# Root is used only for socket-group setup; the entrypoint drops UID/GID/capabilities.
+# Secure deployments default to non-root. The legacy trusted-admin Compose file
+# explicitly opts into its older root-only socket/volume initialization path.
+USER node
 ENTRYPOINT ["/app/deploy/container/entrypoint.sh"]

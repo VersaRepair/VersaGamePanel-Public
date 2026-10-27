@@ -6,7 +6,7 @@ const os = require("node:os");
 const { execFile } = require("node:child_process");
 const { promisify } = require("node:util");
 const test = require("node:test");
-const { profiles, settings, configuration, validateProfileRuntime, workshopIds, workshopConfiguration, enabledMods } = require("../lib/game-profiles");
+const { profiles, settings, configuration, validateProfileRuntime, workshopIds, workshopConfiguration } = require("../lib/game-profiles");
 const { gameSnapshots } = require("../lib/game-snapshots");
 const { panelFixture } = require("../test-support/panel");
 const { json } = require("../test-support/minecraft");
@@ -56,13 +56,8 @@ test("new game definitions create nothing automatically and validate edits befor
   }
 });
 
-test("reviewed tModLoader validates enabled names and keeps modded save paths separate from vanilla", () => {
-  assert.deepEqual(enabledMods("ExampleMod,OtherMod\nExampleMod"), ["ExampleMod", "OtherMod"]);
-  for (const value of ["../world", "bad-name", "mod;command", "1invalid"]) assert.throws(() => enabledMods(value));
-  const modded = configuration("terraria-tmodloader-reviewed", {});
-  assert.match(modded, /world=\/data\/tmodloader\/Worlds\/world\.wld/);
-  assert.match(modded, /modpath=\/data\/tmodloader\/Mods/);
-  assert.ok(!modded.includes("world=/data/saves"));
+test("vulnerable tModLoader runtime is not offered as a reviewed profile", () => {
+  assert.equal(profiles["terraria-tmodloader-reviewed"], undefined);
 });
 
 test("save snapshots restore exact data/settings, exclude binaries, reject cross-game and traversal", async (t) => {

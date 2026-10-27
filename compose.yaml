@@ -1,6 +1,8 @@
 name: versagamepanel
 services:
   panel:
+    # Legacy trusted-admin backend only; developer agent deployment is separate.
+    user: "0:0"
     image: ${VGP_IMAGE:-ghcr.io/versarepair/versagamepanel:alpha}
     container_name: versagamepanel
     restart: unless-stopped

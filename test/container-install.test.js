@@ -20,10 +20,12 @@ test("packaged panel: non-root bootstrap, sibling console/files, backups and rep
     await docker(["image", "rm", `${name}-sibling`]).catch(() => {});
   });
   await docker(["volume", "create", volume]);
-  await assert.rejects(docker(["run", "--rm", image]), /Container setup failed/, "missing Docker socket fails closed");
-  await assert.rejects(docker(["run", "--rm", "-v", "/var/run/docker.sock:/var/run/docker.sock", image]), /explicitly named Docker volume/, "anonymous data storage is rejected");
+  assert.equal((await docker(["image", "inspect", "--format", "{{.Config.User}}", image])).trim(), "node", "distributed image defaults to non-root");
+  await assert.rejects(docker(["run", "--rm", image]), /Container startup failed/, "default non-root image fails closed without backend enrollment");
+  await assert.rejects(docker(["run", "--rm", "--user", "0:0", image]), /Container setup failed/, "legacy missing Docker socket fails closed");
+  await assert.rejects(docker(["run", "--rm", "--user", "0:0", "-v", "/var/run/docker.sock:/var/run/docker.sock", image]), /explicitly named Docker volume/, "legacy anonymous data storage is rejected");
   async function start() {
-    await docker(["run", "-d", "--name", name, "--read-only", "--tmpfs", "/tmp:rw,nosuid,nodev,noexec,size=256m",
+    await docker(["run", "-d", "--name", name, "--user", "0:0", "--read-only", "--tmpfs", "/tmp:rw,nosuid,nodev,noexec,size=256m",
       "--cap-drop=ALL", "--cap-add=CHOWN", "--cap-add=SETUID", "--cap-add=SETGID", "--cap-add=SETPCAP", "--security-opt=no-new-privileges",
       "--pids-limit=256", "--memory=1g", "-e", "GAMEPANEL_AUTH_DISABLED=1", "-e", "GAMEPANEL_ALLOW_LEGACY_TOKEN=1", "-p", "127.0.0.1::8788", "-v", `${volume}:/data`, "-v", "/var/run/docker.sock:/var/run/docker.sock", image]);
     const [info] = JSON.parse(await docker(["inspect", name]));
@@ -36,6 +38,7 @@ test("packaged panel: non-root bootstrap, sibling console/files, backups and rep
     assert.fail(`Packaged panel did not start: ${await docker(["logs", name])}`);
   }
   let url = await start();
+  assert.equal((await fetch(url + "/")).status, 200, "non-root panel can serve its public assets");
   const password = (await docker(["exec", "--user", "1000:1000", name, "cat", "/data/initial-admin-password.txt"])).trim();
   assert.ok(password.length >= 24);
   assert.ok(!(await docker(["logs", name])).includes(password), "password never reaches container logs");

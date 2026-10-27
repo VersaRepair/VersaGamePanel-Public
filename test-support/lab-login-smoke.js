@@ -14,7 +14,7 @@ async function main() {
   try {
     const servers = await (await fetch(`${origin}/api/servers`, { headers })).json();
     const templates = await (await fetch(`${origin}/api/templates`, { headers })).json();
-    const ids = ["unturned-dedicated", "terraria-vanilla", "terraria-tmodloader-reviewed"];
+    const ids = ["unturned-dedicated", "terraria-vanilla"];
     for (const id of ids) assert.ok(templates.templates.some((template) => template.id === id));
     assert.equal(servers.servers.length, 0, "no test records should be deployed");
     console.log(JSON.stringify({ authenticated: true, records: servers.servers.length, reviewedProfiles: ids }));

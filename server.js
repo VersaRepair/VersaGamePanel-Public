@@ -20,6 +20,8 @@ const { gameDefinition, blockedReason } = require("./lib/game-registry");
 const { directConnectivity, directEndpoints } = require("./lib/direct-connectivity");
 const { dockerRunArgs, validatePorts, resources } = require("./lib/docker-runtime");
 const { hostStoragePath } = require("./lib/host-storage");
+const { agentClientFromEnv, unavailable: agentUnavailable } = require("./lib/agent-client");
+const { GAME_PROFILES, isGame, validGamePort } = require("./lib/agent-game-catalog");
 const { replaceDirectory } = require("./lib/directory-transaction");
 const { serverOperations } = require("./lib/server-operations");
 const { saveJson } = require("./lib/json-store");
@@ -39,6 +41,9 @@ const HOST = process.env.HOST || process.env.GAMEPANEL_HOST || "0.0.0.0";
 const AUTH_DISABLED = process.env.GAMEPANEL_AUTH_DISABLED === "1";
 const SERVER_DATA_DIR = path.join(DATA_DIR, "servers");
 const BACKUP_DATA_DIR = path.join(DATA_DIR, "backups");
+const BACKEND = process.env.GAMEPANEL_BACKEND || "docker";
+if (!["docker", "agent"].includes(BACKEND)) throw new Error("Choose the docker or agent backend explicitly.");
+const remoteAgent = BACKEND === "agent" ? agentClientFromEnv(process.env) : null;
 
 const CONTAINER_PREFIX = "gp_";
 const consoleTickets = createConsoleTickets();
@@ -259,30 +264,6 @@ const templates = [
       { key: "MAXPLAYERS", label: "Max Players", type: "number", min: 1, max: 32 },
       { key: "PASSWORD", label: "Password", type: "password" },
       { key: "DIFFICULTY", label: "Difficulty", type: "select", options: ["0", "1", "2", "3"] }
-    ]
-  },
-  {
-    id: "terraria-tmodloader",
-    name: "tModLoader",
-    subtitle: "Modded Terraria; attach console for first world setup",
-    family: "Steam",
-    image: "hexlo/terraria-tmodloader-server:latest",
-    networkMode: "host",
-    dataMount: "/root/.local/share/Terraria",
-    ports: [{ host: 7777, container: 7777, protocol: "tcp", label: "Game" }],
-    env: {
-      world: "",
-      worldpath: "/root/.local/share/Terraria/Worlds",
-      autocreate: "2",
-      maxplayers: "8",
-      password: ""
-    },
-    fields: [
-      { key: "world", label: "World File Path", type: "text" },
-      { key: "worldpath", label: "World Folder", type: "text" },
-      { key: "autocreate", label: "Auto Create Size", type: "select", options: ["1", "2", "3"] },
-      { key: "maxplayers", label: "Max Players", type: "number", min: 1, max: 32 },
-      { key: "password", label: "Password", type: "password" }
     ]
   },
   {
@@ -543,6 +524,10 @@ function visibleServers(ctx) {
   return state.servers.filter((server) => canAccessServer(ctx, server));
 }
 
+function permittedUserServerIds(ids) {
+  return Array.isArray(ids) ? ids.filter((id) => remoteAgent ? /^[a-f0-9]{64}$/.test(id) : state.servers.some((server) => server.id === id)) : [];
+}
+
 function accessibleServer(ctx, id) {
   const server = state.servers.find((server) => server.id === id && canAccessServer(ctx, server));
   const reason = server && blockedReason(server, templates);
@@ -746,6 +731,7 @@ function runProcess(command, args, options = {}) {
 }
 
 function docker(args, options = {}) {
+  if (remoteAgent) throw new Error("Local Docker is disabled in agent mode.");
   return runProcess("docker", args, options);
 }
 
@@ -1773,7 +1759,7 @@ async function handleApi(req, res, urlObject) {
         username,
         role: body.role === "admin" ? "admin" : "operator",
         passwordHash: hashPassword(password),
-        serverIds: Array.isArray(body.serverIds) ? body.serverIds.filter((id) => state.servers.some((server) => server.id === id)) : [],
+        serverIds: permittedUserServerIds(body.serverIds),
         createdAt: new Date().toISOString()
       });
       await saveUsers();
@@ -1791,7 +1777,7 @@ async function handleApi(req, res, urlObject) {
       }
       const revoke = Boolean(body.password) || user.role !== nextRole;
       user.role = nextRole;
-      if (Array.isArray(body.serverIds)) user.serverIds = body.serverIds.filter((id) => state.servers.some((server) => server.id === id));
+      if (Array.isArray(body.serverIds)) user.serverIds = permittedUserServerIds(body.serverIds);
       if (body.password) user.passwordHash = hashPassword(String(body.password));
       await saveUsers();
       if (revoke) authSessions.revokeUser(user.username);
@@ -1812,6 +1798,58 @@ async function handleApi(req, res, urlObject) {
       return json(res, 200, { users: users.map(publicUser) });
     }
     return json(res, 405, { error: "Method not allowed" });
+  }
+
+  if (remoteAgent) {
+    if (urlObject.pathname === "/api/templates" && req.method === "GET") return json(res, 200, { templates: [] });
+    if (urlObject.pathname === "/api/status" && req.method === "GET") {
+      try { const health = await remoteAgent.health(); return json(res, 200, { backend: "agent", ok: true, release: require("./package.json").version, profiles: (health.profiles || []).filter((p) => ["alpine-smoke-v1", "alpine-console-v1"].includes(p) || isGame(p)), gameProfiles: Object.fromEntries(Object.entries(GAME_PROFILES).map(([id, p]) => [id, { title: p.title, portMin: p.portMin, portMax: p.portMax, step: p.step, memoryGiB: p.memory / 1024 ** 3 }])), memoryBudgetGiB: health.memoryBudgetGiB || 6, provisioning: health.provisioning === true, logs: health.logs === true }); }
+      catch { return json(res, 200, { backend: "agent", ok: false, error: agentUnavailable().message }); }
+    }
+    if (urlObject.pathname === "/api/servers" && req.method === "GET") {
+      try { return json(res, 200, { servers: (await remoteAgent.list()).filter((server) => canAccessServer(ctx, server)) }); }
+      catch { return json(res, 200, { servers: [], error: agentUnavailable().message }); }
+    }
+    if (urlObject.pathname === "/api/servers" && req.method === "POST") {
+      requireAdmin(ctx);
+      const body = await readBody(req, 1024);
+      const game = isGame(body?.profile);
+      if (!body || Array.isArray(body) || Object.keys(body).sort().join(",") !== (game ? "eula,name,port,profile" : "name,profile") || !game && !["alpine-smoke-v1", "alpine-console-v1"].includes(body.profile) || typeof body.name !== "string" || !/^[A-Za-z0-9][A-Za-z0-9 _-]{0,59}$/.test(body.name) || body.name !== body.name.trim() || game && (body.eula !== true || !validGamePort(body.profile, body.port))) return json(res, 400, { error: "Choose an approved profile, a short server name, accept the selected game's terms and choose an allowed port shown in the form." });
+      return json(res, 201, await remoteAgent.provision({ ...body, serverId: crypto.randomUUID() }));
+    }
+    const ticket = /^\/api\/servers\/([a-f0-9]{64})\/console-ticket$/.exec(urlObject.pathname);
+    if (ticket && req.method === "POST") {
+      if (!canAccessServer(ctx, { id: ticket[1] })) return json(res, 404, { error: "Server not found." });
+      const body = await readBody(req, 1024);
+      if (!body || Object.keys(body).join(",") !== "mode" || !["logs", "console"].includes(body.mode)) return json(res, 400, { error: "Choose logs or console." });
+      const record = (await remoteAgent.list()).find((s) => s.id === ticket[1]);
+      if (!record) return json(res, 404, { error: "Server not found." });
+      if (body.mode === "console" && !record.console) return json(res, 501, { error: "Console input is unsupported for this profile. Use Logs." });
+      if (body.mode === "console" && !record.runtime.running) return json(res, 409, { error: "Start this server before opening its console." });
+      return json(res, 201, consoleTickets.issue({ serverId: record.id, mode: body.mode,
+        authorization: req.headers.authorization || `Bearer ${tokenInput(req, urlObject)}` }));
+    }
+    const match = /^\/api\/servers\/([a-f0-9]{64})(\/actions)?$/.exec(urlObject.pathname);
+    if (match) {
+      const id = match[1];
+      if (!canAccessServer(ctx, { id })) return json(res, 404, { error: "Server not found." });
+      if (!match[2] && req.method === "GET") {
+        const server = (await remoteAgent.list()).find((item) => item.id === id);
+        return json(res, server ? 200 : 404, server ? { server } : { error: "Server not found." });
+      }
+      if (!match[2] && req.method === "DELETE") {
+        requireAdmin(ctx);
+        const body = await readBody(req, 1024);
+        if (!body || Array.isArray(body) || Object.keys(body).join(",") !== "confirm" || body.confirm !== id) return json(res, 400, { error: "Confirm the exact stopped disposable server before deleting it and its data." });
+        return json(res, 200, await remoteAgent.remove(id, body));
+      }
+      if (match[2] && req.method === "POST") {
+        const body = await readBody(req, 1024);
+        if (Object.keys(body).length !== 1 || !["start", "stop", "restart"].includes(body.action)) return json(res, 400, { error: "Only start, stop and restart are available in this agent milestone." });
+        return json(res, 200, await remoteAgent.lifecycle(id, body.action));
+      }
+    }
+    return json(res, 501, { error: "This operation has not migrated to the agent. Local Docker fallback is disabled." });
   }
 
   if (urlObject.pathname === "/api/templates") {
@@ -2157,6 +2195,7 @@ async function serveStatic(req, res, urlObject) {
 }
 
 async function main() {
+  if (remoteAgent && (AUTH_DISABLED || LEGACY_TOKEN_ENABLED)) throw new Error("Agent mode requires browser/user authentication; disable legacy-token and auth-bypass flags.");
   await ensureData();
   const server = http.createServer(async (req, res) => {
     res.setHeader("referrer-policy", "no-referrer");
@@ -2177,9 +2216,10 @@ async function main() {
   });
   consoleTransport = attachConsoleTransport(server, {
     runtimeFor, isNativeServer, nativeFor, sendNativeConsole, publicOrigin: PUBLIC_ORIGIN,
+    ...(remoteAgent ? { openRemote: (record, mode) => remoteAgent.openStream(record.id, mode), limits: { maxConnections: 8, maxPayload: 128, maxQueuedInput: 1024, maxBufferedOutput: 32768, heartbeatMs: 1000 } } : {}),
     canContinue(record, req, touch) {
       const ctx = authContext({ headers: { authorization: req.consoleAuthorization || "" } }, new URL("http://localhost/"), touch);
-      return Boolean(ctx && accessibleServer(ctx, record.id));
+      return Boolean(ctx && (remoteAgent ? canAccessServer(ctx, record) : accessibleServer(ctx, record.id)));
     },
     authorize(req, url, serverId, mode) {
       const record = url.searchParams.has("ticket") ? consoleTickets.consume(url.searchParams.get("ticket"), serverId, mode) : null;
@@ -2189,7 +2229,7 @@ async function main() {
       const ctx = authContext({ headers: { authorization: authorization || "" } }, new URL("http://localhost/"));
       if (!ctx) return null;
       req.consoleAuthorization = authorization;
-      return accessibleServer(ctx, serverId);
+      return remoteAgent ? /^[a-f0-9]{64}$/.test(serverId) && canAccessServer(ctx, { id: serverId }) ? { id: serverId } : null : accessibleServer(ctx, serverId);
     }
   });
   server.listen(PORT, HOST, () => {

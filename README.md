@@ -1,97 +1,81 @@
-# VersaGamePanel
+# VersaGamePanel — public tester alpha
 
-**Self-hosted game-server management, with control over your games and data.**
+A self-hosted game-server management panel, continuing Zackary Nortley's original GamePanel. Recovered in October 2026 and modernized without replacing its identity.
 
-VersaGamePanel is a browser-based panel for creating and managing dedicated game servers on a Linux Docker host. It brings server installation, configuration, lifecycle controls, interactive consoles, files and save backups into one interface—while keeping the underlying server data on infrastructure you control.
+**Early alpha, not production-ready. Linux amd64 / trusted administrators only.** Use a dedicated Docker VM. Docker socket access gives this application host-root-equivalent authority; do not expose its administration UI publicly or use it for untrusted multi-tenant hosting.
 
-> [!WARNING]
-> **Early tester alpha, not production-ready.** The tested package targets **Linux amd64** with Docker on a **dedicated VM or host**, for **trusted administrators only**. Access to the Docker socket grants effectively host-root privileges. Do **not** expose the panel's administration port to the public internet, deploy alongside irreplaceable data, or use it for untrusted multi-tenant hosting.
+## Try it
 
-## Quick start: run the panel
+```sh
+curl -fL https://raw.githubusercontent.com/VersaRepair/VersaGamePanel-Public/main/compose.yaml -o compose.yaml && docker compose up -d
+```
 
-**Prerequisites:** A disposable Linux amd64 Docker machine (tested on Debian 13), Docker Engine 26+ and Docker Compose v2. Read the [installation and security guide](docs/CONTAINERS.md) before using the package.
+Open http://127.0.0.1:8788 and read the [installation guide](docs/CONTAINERS.md) for the private first-login password, docker run alternative, game runtime preparation, networking, backups and updates. Do not paste passwords into issues. Installation creates zero game servers and accepts no game EULAs.
 
-On the Docker host:
+## What testers can exercise
 
-~~~sh
-curl -fL https://raw.githubusercontent.com/VersaRepair/VersaGamePanel-Public/main/compose.yaml -o compose.yaml
-docker compose up -d
-docker compose ps
-~~~
+- Create/start/stop/restart Docker-backed servers; live interactive console and logs.
+- Per-server files/settings and scoped world/save backup and restore.
+- Minecraft Java Vanilla and Fabric/custom-mod inspection paths with real-game lab verification; not every listed loader/provider is certified.
+- Reviewed fresh Unturned and Terraria Vanilla profiles; explicit runtime preparation downloads publisher software on your host. tModLoader is withheld pending a vulnerability-free supported upstream bundle.
+- Local mod inspection checks declared metadata, not malware or universal compatibility. Full remote pack resolution is unfinished.
+- Browser authentication, per-server operator permissions and session revocation. Admins are fully trusted; this is not hostile tenant isolation.
 
-The default interface is available **on the Docker host** at [http://127.0.0.1:8788](http://127.0.0.1:8788). For a remote host, use an SSH tunnel from your own computer rather than publishing the panel port:
+Networking is currently Direct with explicit host bindings. Integrated Playit/VersaRelay, universal game support, ARM/TrueNAS catalog packaging, automatic full-host backups and safe multi-panel daemon sharing are future work. Recovered LinuxGSM alternatives remain unverified.
 
-~~~sh
-ssh -L 8788:127.0.0.1:8788 your-user@your-docker-host
-~~~
+GitHub Actions performs regression/browser tests, secret/static/dependency checks, an actual packaged-panel/sibling-container journey and an image vulnerability gate. Heavy real-game jobs are opt-in. The moving alpha image is published only after required checks pass; immutable SHA tags are available. A passing scanner is not a security certification.
 
-Then open the same localhost URL in your computer's browser.
+## History and attribution
 
-**First login:** Username `admin`. Retrieve the one-time generated password **locally** from the Docker host:
+This is a clean public source export. The untouched recovery snapshot, original Git tag and old server/plugin bundles remain preserved in the owner's **private** recovery repository; they are not installed or distributed here. Original GamePanel logos remain in public/assets/brand and continue to represent this alpha. The owner reports early AI assistance including ChatGPT and Codex; authorship of individual recovered assets has not been independently verified, so no asset-specific credits are invented.
 
-~~~sh
-docker exec --user 1000:1000 versagamepanel cat /data/initial-admin-password.txt
-~~~
+No personal Unturned installation, family world, account, token or tunnel is a prerequisite or default. A fresh install is empty. Third-party game software, images and optional mods remain subject to their publishers' terms. A general open-source license has not yet been selected; public availability is not a claim of unrestricted redistribution rights. The owner has authorized public tester distribution of this application image.
 
-Change that password after logging in. Never post passwords or unredacted logs in GitHub issues. A fresh installation starts with **zero configured game servers** and installs no game binaries until explicitly requested.
+## Why VersaGamePanel Exists
 
-## First game-server test
+VersaGamePanel didn't start as a business idea, a commercial product, or an attempt to compete with other game-server management platforms.
 
-For the simplest initial exercise, create a disposable **Minecraft Java Vanilla 1.21.1** server from the panel. Review and accept the Minecraft EULA only if you agree to it. Start the game, confirm actual readiness, send a console command and verify a game-generated response; then stop and restart it.
+**It started because I wanted to make something for my brother.**
 
-For reviewed **Unturned**, **Terraria Vanilla** or **tModLoader** profiles, prepare only the runtime you intend to test first:
+We were trying to get game servers running, and the existing management software made something that should have been simple feel unnecessarily complicated.
 
-~~~sh
-docker exec versagamepanel /app/deploy/container/entrypoint.sh prepare-runtime unturned
-# Or replace unturned with terraria or tmodloader.
-~~~
+Installing servers was frustrating. Managing them was confusing. Even accessing something as basic as the server console could turn into an entire troubleshooting session.
 
-This explicitly builds the game runtime on the Docker host and downloads publisher files. It does not create a game server, import existing saves or bundle third-party game binaries. Game ports default to localhost; remote players **cannot** automatically join until networking is deliberately configured.
+I found myself walking my brother through Linux commands, SSH connections, services, and terminal sessions just so he could manage a game server and enjoy playing with friends.
 
-Follow the [tester checklist](docs/TESTING.md) for the complete install → console → backup/restore → persistence journey.
+And eventually, I thought:
 
-## Supported scenarios in this alpha
+*Why does this have to be so difficult? Why can't there just be a simple panel that does what we actually need?*
 
-| Game / feature | Verified scenario | Limit |
-| --- | --- | --- |
-| Minecraft Java Vanilla 1.21.1 | Real server start, console, settings, world backup/restore, persistence | Other versions and client combinations are not guaranteed |
-| Minecraft Fabric 1.21.1 | Real FerriteCore 7.0.3 modded startup and world restore | One verified mod/loader combination |
-| Unturned Dedicated | Fresh installation, console, save/restore, Hawaii Workshop example | Other Workshop content and versions can change |
-| Terraria Vanilla 1.4.5.8 | Real startup, console, graceful stop and save restore | Other releases unverified |
-| Terraria tModLoader 2026.08.3.0 | ExampleMod, console and `.wld`/`.twld` save restore | No automatic Workshop mod downloads |
-| Other recovered templates | Available as experimental definitions | Not verified end-to-end |
+So I decided to build one.
 
-This table summarizes **specific lab-tested scenarios**, not full support certification. See the [compatibility matrix](docs/COMPATIBILITY.md) for evidence, host requirements and important caveats.
+I wasn't a big development company. I didn't have a team of engineers or an unlimited budget. I was just someone who enjoyed working with computers, learning new things, and trying to make life a little easier for someone I cared about.
 
-## What the panel provides
+I spent countless hours experimenting, troubleshooting, breaking things, fixing them, and figuring out how to turn an idea into something real.
 
-- Create, start, stop and restart supported Docker-backed game servers.
-- View logs and send commands through the interactive console.
-- Manage server settings and scoped game files.
-- Back up and restore supported worlds/saves; these are **not** full-host backups.
-- Use per-server operator permissions, browser sign-in and session revocation.
-- Inspect some local Minecraft mods and apply reviewed changes with backups.
-- Configure **Direct** networking with explicit port bindings.
+That became **GamePanel**.
 
-**Not implemented or not certified yet:** integrated Playit.gg or VersaRelay tunnels, TrueNAS catalog installation, ARM builds, universal game/mod support, automatic full-system backups, safe multi-tenant isolation, and multiple independent panels sharing a Docker daemon. The current software is a tester build, not a production game-hosting service.
+Over time, it grew into something much bigger than I originally imagined, supporting multiple games, live consoles, server management, backups, and recovery tools.
 
-## Help test and improve it
+Eventually, the project was set aside, and for a while, I thought I'd lost it entirely.
 
-The most useful next milestone is a **fresh installation by someone following the documentation without developer assistance**. Successful tests and failures are equally valuable.
+But in October 2026, I found the surviving source code and decided it deserved another chance.
 
-- [Start a first-time test](docs/TESTING.md) and follow the [Docker install guide](docs/CONTAINERS.md).
-- [Report a bug](https://github.com/VersaRepair/VersaGamePanel-Public/issues/new?template=bug_report.yml) with reproducible steps and redacted logs.
-- [Submit a compatibility result](https://github.com/VersaRepair/VersaGamePanel-Public/issues/new?template=compatibility_report.yml), including a successful one.
-- [Report security vulnerabilities privately](SECURITY.md), not in public issues.
+Today, that project continues as **VersaGamePanel**, part of the VersaRepair family.
 
-GitHub Actions runs regression tests, browser tests, dependency/static/secret checks, packaged-container tests and image vulnerability checks before publishing a commit-specific candidate image. Moving release tags, including `alpha`, change **only after an explicit approved promotion**. Commit-specific image tags remain available for reproducible testing. **Passing CI or a scanner is not a security certification.**
+### What matters most
 
-## Source, releases and project history
+I don't need VersaGamePanel to become the biggest game-server management platform.
 
-The currently tested public image is `ghcr.io/versarepair/versagamepanel:alpha`. See the [release channels and promotion policy](docs/RELEASE_CHANNELS.md) for the proposed Dev, Alpha, Beta and Stable tracks and the explicit approval process. The source in this repository is a **clean public tester export**; the original recovered history and archived server/plugin bundles are retained separately and are not part of the distributed image.
+I don't need it to beat anyone else's software.
 
-VersaGamePanel continues the original GamePanel project. Its identity, preservation approach and motivation are described in [project history](docs/HISTORY.md). Original GamePanel visual assets remain part of the application.
+I just want to finish what I started: something straightforward, reliable, and genuinely useful that gives people control over their own game servers without making them fight the software meant to help them.
 
-Third-party games, container images and mods retain their respective licensing terms. **No general software license has been selected for this repository**; source visibility is not permission to redistribute or relicense it.
+If it makes hosting a game server easier for another person, another group of friends, or another family, then that's something worth sharing.
 
-Maintained by **VersaRepair LLC**.
+**But no matter how far this project goes, I'll always remember why I started building it.**
+
+*I made it for my brother.*
+
+— **Zackary Nortley**\
+Founder, VersaRepair

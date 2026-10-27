@@ -25,7 +25,7 @@ ssh -L 8788:127.0.0.1:8788 your-user@your-docker-host
 
 For deliberate trusted LAN access only: `VGP_BIND_ADDRESS=YOUR_HOST_LAN_IP docker compose up -d`. Sign-in over plain HTTP is not encrypted; use a trusted private connection or a correctly configured HTTPS proxy for non-local access. Do not forward the admin port to the internet. Existing public-URL/cookie settings require correct HTTPS proxy configuration and are not automatically set up here.
 
-The public `alpha` tag remains on its last explicitly approved version. The reviewed public release workflow will publish CI-tested `sha-COMMIT` candidate tags; an authorized maintainer must explicitly promote a candidate before `dev`, `alpha`, `beta` or `stable` moves. See [release channels](RELEASE_CHANNELS.md). Set `VGP_IMAGE=ghcr.io/versarepair/versagamepanel:sha-COMMIT` or an image digest to pin a build. `VGP_PORT` changes the host port; `VGP_DATA_VOLUME` changes the named data volume. Do not run multiple panels against the same volume or daemon: game container names and the Docker maintenance view are not namespaced between installations yet.
+The public `alpha` tag moves after CI passes; immutable `sha-COMMIT` tags are also published. Set `VGP_IMAGE=ghcr.io/versarepair/versagamepanel:sha-COMMIT` or an image digest to pin a build. `VGP_PORT` changes the host port; `VGP_DATA_VOLUME` changes the named data volume. Do not run multiple panels against the same volume or daemon: game container names and the Docker maintenance view are not namespaced between installations yet.
 
 ## Install with docker run
 
@@ -51,15 +51,15 @@ Do not paste its output into issues, chat, or screenshots. Change it in the pane
 
 Installation starts with **zero servers**. Minecraft downloads its selected runtime when you explicitly create/start a server and accept its EULA. Vanilla and Fabric/FerriteCore paths have real-game lab validation; not every selectable loader or pack provider is verified.
 
-Prepare the three reviewed dedicated runtimes with one explicit command:
+Prepare the two reviewed dedicated runtimes with one explicit command:
 
 ```sh
 docker exec versagamepanel /app/deploy/container/entrypoint.sh prepare-runtime all
 ```
 
-Or replace `all` with `unturned`, `terraria`, or `tmodloader`. This builds the fixed recipes on your Docker host and downloads publisher files. It may take several minutes and several GB of space. It installs no configured game server and does not import existing data. Your game purchases/licenses and publisher terms still apply. The panel image contains recipes, **not redistributed game binaries, Workshop content, mods or family save data**. Unturned's first server start separately performs its anonymous SteamCMD installation. Prepared images are kept on the Docker host and reused.
+Or replace `all` with `unturned` or `terraria`. This builds the fixed recipes on your Docker host and downloads publisher files. It may take several minutes and several GB of space. It installs no configured game server and does not import existing data. Your game purchases/licenses and publisher terms still apply. The panel image contains recipes, **not redistributed game binaries, Workshop content, mods or family save data**. Unturned's first server start separately performs its anonymous SteamCMD installation. Prepared images are kept on the Docker host and reused.
 
-Use the reviewed Unturned Dedicated, Terraria Vanilla or Terraria tModLoader profiles, not the recovered unverified LinuxGSM alternatives. Prepare runtimes again only for an intentional runtime upgrade; never rebuild/change a running game blindly. New panel versions do not automatically migrate old game images.
+Use the reviewed Unturned Dedicated or Terraria Vanilla profiles, not the recovered unverified LinuxGSM alternatives. tModLoader is temporarily unavailable because the latest supported upstream archive contains vulnerable bundled dependencies; it will return only after a compatible fixed release passes the same strict scan. Prepare runtimes again only for an intentional runtime upgrade; never rebuild/change a running game blindly. New panel versions do not automatically migrate old game images.
 
 ## Persistent data and backups
 

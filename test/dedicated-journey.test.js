@@ -22,10 +22,6 @@ for (const [id, profile] of Object.entries(profiles)) {
         ...(profile.game === "unturned" && process.env.GAMEPANEL_UNTURNED_WORKSHOP_TEST === "1" ? { WORKSHOP_MANAGED: "TRUE", WORKSHOP_ITEMS: "1753134636", MAP: "Hawaii" } : {}) }
     } }, 201)).server;
     const name = `gp_${server.id}`;
-    if (profile.game === "tmodloader" && process.env.GAMEPANEL_TEST_EXAMPLEMOD_FILE) {
-      await upload(f, server.id, "tmodloader/Mods/ExampleMod.tmod", await fs.readFile(process.env.GAMEPANEL_TEST_EXAMPLEMOD_FILE));
-      await json(f, `/servers/${server.id}`, { method: "PUT", body: { env: { MANAGE_MODS: "TRUE", ENABLED_MODS: "ExampleMod" } } });
-    }
     // Emergency cleanup is restricted to this generated fixture container only.
     t.after(async () => { await docker(["rm", "-f", name]).catch(() => {}); });
     async function ready() {
@@ -40,9 +36,6 @@ for (const [id, profile] of Object.entries(profiles)) {
     }
     await action(f, server.id, "start");
     await ready();
-    if (profile.game === "tmodloader" && process.env.GAMEPANEL_TEST_EXAMPLEMOD_FILE) {
-      assert.match(await docker(["logs", name]), /ExampleMod|Example Mod/, "real ExampleMod was loaded");
-    }
     await command(f, server.id, profile.game === "unturned" ? "Save" : "save", profile.game === "unturned" ? /Successfully saved|Saved the|Saved level|Saving/ : /World saved|Saving world data/i);
     await action(f, server.id, "stop");
     let [info] = JSON.parse(await docker(["inspect", name]));
@@ -56,21 +49,18 @@ for (const [id, profile] of Object.entries(profiles)) {
       assert.deepEqual(workshop.File_IDs, [1753134636]);
       assert.ok(files.some((file) => file.includes("1753134636")), "the public Workshop item was actually downloaded");
     }
-    const save = profile.game === "unturned" ? path.join(scope, "Server", "Commands.dat") : path.join(scope, profile.game === "tmodloader" ? "Worlds/world.wld" : "world.wld");
+    const save = profile.game === "unturned" ? path.join(scope, "Server", "Commands.dat") : path.join(scope, "world.wld");
     const original = await fs.readFile(save);
     const unturnedSave = profile.game === "unturned" ? files.find((file) => file.startsWith("Level/") && file.endsWith(".dat")) : null;
     const worldOriginal = unturnedSave ? await fs.readFile(path.join(scope, unturnedSave)) : null;
     if (profile.game === "unturned") assert.ok(unturnedSave, `actual survival level save exists, not just configuration: ${files.filter((file) => !file.startsWith("Workshop")).slice(0, 30).join(", ")}`);
-    const twld = profile.game === "tmodloader" ? await fs.readFile(path.join(scope, "Worlds/world.twld")) : null;
     const hash = (value) => crypto.createHash("sha256").update(value).digest("hex");
     const snapshot = await json(f, `/servers/${server.id}/snapshots`, { method: "POST", body: { action: "create" } }, 201);
     await fs.writeFile(save, "deliberately damaged disposable save");
     if (unturnedSave) await fs.writeFile(path.join(scope, unturnedSave), "damaged level save");
-    if (twld) await fs.writeFile(path.join(scope, "Worlds/world.twld"), "damaged companion mod save");
     await json(f, `/servers/${server.id}/snapshots`, { method: "POST", body: { action: "restore", name: snapshot.name } });
     assert.equal(hash(await fs.readFile(save)), hash(original), "snapshot restored exact original game data");
     if (unturnedSave) assert.equal(hash(await fs.readFile(path.join(scope, unturnedSave))), hash(worldOriginal), "Unturned level data restored alongside configuration");
-    if (twld) assert.equal(hash(await fs.readFile(path.join(scope, "Worlds/world.twld"))), hash(twld), "modded .twld companion restored with .wld");
     await upload(f, server.id, "verification.txt", "retained after restart");
     assert.equal(await download(f, server.id, "verification.txt"), "retained after restart");
     await action(f, server.id, "start");

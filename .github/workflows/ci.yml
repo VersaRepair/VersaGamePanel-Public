@@ -37,7 +37,7 @@ on:
         type: boolean
         default: false
       dedicated_games:
-        description: Build reviewed runtimes and run Unturned, Terraria and tModLoader/ExampleMod journeys (large downloads)
+        description: Build reviewed runtimes and run Unturned and Terraria journeys (large downloads)
         type: boolean
         default: false
 
@@ -94,7 +94,7 @@ jobs:
       - name: Local code-security guardrails (no cloud login or source upload)
         env:
           SEMGREP_ENABLE_VERSION_CHECK: '0'
-        run: semgrep scan --config .semgrep.yml --metrics=off --error server.js lib public/app.js runtimes
+        run: semgrep scan --config .semgrep.yml --metrics=off --error server.js lib agent public/app.js runtimes
 
   container:
     needs: checks
@@ -121,19 +121,11 @@ jobs:
         run: |
           docker build -f runtimes/Unturned.Dockerfile -t versagamepanel/unturned:2 .
           docker build -f runtimes/Terraria.Dockerfile -t versagamepanel/terraria:1.4.5.8-1 .
-          docker build -f runtimes/TModLoader.Dockerfile -t versagamepanel/tmodloader:2026.08.3.0-2 .
-      - name: Download publisher ExampleMod fixture and verify release digest
-        run: |
-          curl -fL --retry 3 https://github.com/tModLoader/tModLoader/releases/download/v2026.08.3.0/ExampleMod.zip -o "$RUNNER_TEMP/examplemod.zip"
-          echo "6e4bae85dd394724104b5d2e60eba8565762131c037617adf884d128c9f836fc  $RUNNER_TEMP/examplemod.zip" | sha256sum -c -
-          unzip -q "$RUNNER_TEMP/examplemod.zip" ExampleMod.tmod -d "$RUNNER_TEMP/examplemod"
       - name: Sequential real-game lifecycle and save restoration tests
         env:
           GAMEPANEL_UNTURNED_TEST: '1'
           GAMEPANEL_UNTURNED_WORKSHOP_TEST: '1'
           GAMEPANEL_TERRARIA_TEST: '1'
-          GAMEPANEL_TMODLOADER_TEST: '1'
-          GAMEPANEL_TEST_EXAMPLEMOD_FILE: ${{ runner.temp }}/examplemod/ExampleMod.tmod
         run: node --test test/dedicated-journey.test.js
 
   minecraft:

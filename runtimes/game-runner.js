@@ -4,9 +4,9 @@ const fs = require("node:fs/promises");
 const path = require("node:path");
 const { spawn } = require("node:child_process");
 const { setTimeout: delay } = require("node:timers/promises");
-const { configuration, workshopConfiguration, enabledMods } = require("./game-profiles");
+const { configuration, workshopConfiguration } = require("./game-profiles");
 const game = process.argv[2];
-if (!["unturned", "terraria", "tmodloader"].includes(game)) throw new Error("Unknown reviewed game runtime");
+if (!["unturned", "terraria"].includes(game)) throw new Error("Unknown reviewed game runtime");
 let child;
 let stopping = false;
 let playing = false;
@@ -82,18 +82,7 @@ async function main() {
     // terminal. util-linux supplies a PTY *inside* this unprivileged container.
     // The command is fixed, never assembled from user settings. Echo is disabled
     // so the console test must observe a game response, not reflected input.
-    await run("/usr/bin/script", ["--quiet", "--return", "--flush", "--echo", "never", "--command", "exec /bin/bash ./ServerHelper.sh -ThreadedConsole +LanServer/vgp", "/dev/null"], "/data/install", true);
-  } else if (game === "tmodloader") {
-    await config("/data/tmodloader/serverconfig.txt", "terraria-tmodloader-reviewed");
-    await fs.mkdir("/data/tmodloader/Mods", { recursive: true });
-    await fs.mkdir("/data/tmodloader/Logs", { recursive: true });
-    await fs.mkdir("/data/tmodloader/Worlds", { recursive: true });
-    if (process.env.MANAGE_MODS === "TRUE") {
-      const enabled = enabledMods(process.env.ENABLED_MODS);
-      for (const mod of enabled) if (!(await exists(`/data/tmodloader/Mods/${mod}.tmod`))) throw new Error(`Enabled mod ${mod} has no matching uploaded .tmod file; game not started.`);
-      await fs.writeFile("/data/tmodloader/Mods/enabled.json", JSON.stringify(enabled), { mode: 0o600 });
-    }
-    await run("/usr/share/dotnet/dotnet", ["/opt/tmodloader/tModLoader.dll", "-server", "-nosteam", "-tmlsavedirectory", "/data/tmodloader", "-config", "/data/tmodloader/serverconfig.txt"], "/opt/tmodloader", true);
+    await run("/usr/bin/script", ["--quiet", "--return", "--flush", "--echo", "never", "--command", "exec /bin/bash ./ServerHelper.sh -ThreadedConsole -OfflineOnly +LanServer/vgp", "/dev/null"], "/data/install", true);
   } else {
     await config("/data/saves/serverconfig.txt", "terraria-vanilla");
     await run("/opt/terraria/TerrariaServer.bin.x86_64", ["-config", "/data/saves/serverconfig.txt"], "/opt/terraria", true);

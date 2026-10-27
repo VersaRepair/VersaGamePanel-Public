@@ -32,6 +32,16 @@ jobs:
           tar -xzf "$RUNNER_TEMP/trivy.tgz" -C "$RUNNER_TEMP" trivy
       - name: Block fixable high and critical image vulnerabilities
         run: '"$RUNNER_TEMP/trivy" image --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 versagamepanel/panel:container-test'
+      - name: Save tested private PR preview image
+        if: github.repository == 'VersaRepair/VersaGamePanel' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == 'VersaRepair/VersaGamePanel' && github.event.pull_request.head.ref != 'codex/secure-agent-integration' && github.event.pull_request.head.ref != 'codex/agent-safe-provisioning' && github.event.pull_request.head.ref != 'codex/agent-secure-logs-console' && github.event.pull_request.head.ref != 'codex/brother-dev-integration'
+        run: |
+          docker save versagamepanel/panel:container-test | gzip -1 > panel-private-preview.tar.gz
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: github.repository == 'VersaRepair/VersaGamePanel' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == 'VersaRepair/VersaGamePanel' && github.event.pull_request.head.ref != 'codex/secure-agent-integration' && github.event.pull_request.head.ref != 'codex/agent-safe-provisioning' && github.event.pull_request.head.ref != 'codex/agent-secure-logs-console' && github.event.pull_request.head.ref != 'codex/brother-dev-integration'
+        with:
+          name: tested-private-preview-image
+          path: panel-private-preview.tar.gz
+          retention-days: 1
       - name: Save tested image for publisher
         if: github.repository == 'VersaRepair/VersaGamePanel-Public' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         run: docker save versagamepanel/panel:container-test | gzip > panel-image.tar.gz
@@ -59,8 +69,36 @@ jobs:
         run: |
           gzip -dc panel-image.tar.gz | docker load
           printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
-          # Publish a commit-specific candidate. Release channels are promoted
-          # only by the separately approved workflow_dispatch action.
           docker tag versagamepanel/panel:container-test ghcr.io/versarepair/versagamepanel:sha-$GITHUB_SHA
+          docker tag versagamepanel/panel:container-test ghcr.io/versarepair/versagamepanel:alpha
           docker push ghcr.io/versarepair/versagamepanel:sha-$GITHUB_SHA
+          docker push ghcr.io/versarepair/versagamepanel:alpha
+          docker logout ghcr.io
+
+  publish-private-preview:
+    if: github.repository == 'VersaRepair/VersaGamePanel' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == 'VersaRepair/VersaGamePanel' && github.event.pull_request.head.ref != 'codex/secure-agent-integration' && github.event.pull_request.head.ref != 'codex/agent-safe-provisioning' && github.event.pull_request.head.ref != 'codex/agent-secure-logs-console' && github.event.pull_request.head.ref != 'codex/brother-dev-integration'
+    needs: package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: tested-private-preview-image
+      - name: Push CI-tested image only to separate private development package
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          TESTED_SHA: ${{ github.sha }}
+        run: |
+          set -eu
+          gzip -dc panel-private-preview.tar.gz | docker load
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          preview="ghcr.io/versarepair/versagamepanel-dev"
+          docker tag versagamepanel/panel:container-test "$preview:pr-$PR_NUMBER"
+          docker tag versagamepanel/panel:container-test "$preview:sha-$TESTED_SHA"
+          docker push "$preview:sha-$TESTED_SHA"
+          docker push "$preview:pr-$PR_NUMBER"
           docker logout ghcr.io

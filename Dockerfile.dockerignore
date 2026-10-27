@@ -6,6 +6,8 @@
 !server.js
 !lib/
 !lib/*.js
+!agent/
+!agent/*.js
 !public/
 !public/**
 !runtimes/

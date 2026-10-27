@@ -17,6 +17,8 @@ test("fresh panel stays empty; definitions, Direct settings and identity survive
   assert.deepEqual((await (await f.request("/servers")).json()).servers, []);
   const templates = (await (await f.request("/templates")).json()).templates;
   assert.ok(!templates.some((item) => item.id === "unturned-imported-native"));
+  assert.ok(!templates.some((item) => item.id === "terraria-tmodloader"));
+  assert.ok(!templates.some((item) => item.id === "terraria-tmodloader-reviewed"));
   assert.ok(templates.some((item) => item.id === "unturned-linuxgsm"));
   assert.equal(templates[0].definition.schemaVersion, 1);
   for (const body of [{ templateId: "not-a-game" }, { templateId: "unturned-imported-native" }, { templateId: "minecraft-paper", runtimeKind: "systemd", native: { service: "arbitrary" } }]) {
